@@ -1,0 +1,187 @@
+name: Create Release and Publish to PyPI
+
+# Every commit on main is a release (see CONTRIBUTING.md): the version is calculated from the
+# Conventional Commit subjects since the last tag, the commit must pass CI, then the package is
+# built, uploaded to PyPI with Trusted Publishing and tagged as a GitHub Release.
+#
+# The publish job must stay in this file: PyPI's Trusted Publisher is registered for
+# "pypi-publish.yml" with the environment "pypi", and OIDC does not work from a reusable workflow.
+#
+# Version rules (subject line only, which is the squash-merged PR title):
+#   feat!: / fix(idx)!: ...  -> major
+#   feat: / feat(idx): ...   -> minor
+#   everything else          -> patch
+
+on:
+  # The push trigger stays off until the calculated version has been checked in a manual run
+  # with publish_target "none". Enabling it makes every commit on main a PyPI release.
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish_target:
+        description: "What to publish (none = only calculate the version and build)"
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - all
+
+permissions:
+  contents: read
+
+concurrency:
+  # Releases must run one after another, never cancelled half-way.
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Calculate version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
+      version_tag: ${{ steps.semver.outputs.version_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Calculate semantic version
+        id: semver
+        uses: paulhatch/semantic-version@79147b94804704a613626766998afe7b2bd0bb47 # v6.0.5
+        with:
+          tag_prefix: "v"
+          # Optional scope, e.g. "feat(idx)!:". The action only accepts the "i" flag, so these
+          # patterns are checked against the subject line only (search_commit_body: false).
+          major_pattern: "/^[a-z]+(\\([^)]*\\))?!:/"
+          minor_pattern: "/^feat(\\([^)]*\\))?:/"
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: true
+          search_commit_body: false
+      - name: Show version
+        env:
+          VERSION: ${{ steps.semver.outputs.version }}
+          VERSION_TAG: ${{ steps.semver.outputs.version_tag }}
+        run: |
+          echo "Version: $VERSION ($VERSION_TAG)"
+          {
+            echo "## 📦 Calculated version"
+            echo
+            echo "**Version:** \`$VERSION\`"
+            echo "**Tag:** \`$VERSION_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build distribution
+    needs: [version, ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Set package version
+        # hatch refuses to change a static version, so rewrite the line in [project] directly.
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          path = pathlib.Path("pyproject.toml")
+          text, count = re.subn(
+              r'(?m)^version = "[^"]*"',
+              f'version = "{os.environ["VERSION"]}"',
+              path.read_text(),
+              count=1,
+          )
+          assert count == 1, 'expected exactly one version = "..." line'
+          path.write_text(text)
+          PY
+          grep '^version = ' pyproject.toml
+      - name: Build wheel and sdist
+        run: uv build
+      - name: Check distribution
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          uvx twine check --strict dist/*
+          test -f "dist/gribkit-$VERSION-py3-none-any.whl"
+          unzip -l "dist/gribkit-$VERSION-py3-none-any.whl" | grep -q 'gribkit/ncep_parameters.json'
+          unzip -l "dist/gribkit-$VERSION-py3-none-any.whl" | grep -q 'gribkit/py.typed'
+          {
+            echo "## 🔨 Build"
+            echo
+            echo '```'
+            ls -lh dist/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gribkit-dist
+          path: dist/
+          retention-days: 30
+
+  publish:
+    name: Publish to PyPI
+    needs: [version, build]
+    # No PyPI-only option: a version uploaded without its tag would be calculated again by the
+    # next run, and PyPI refuses to upload the same version twice.
+    if: github.event_name == 'push' || inputs.publish_target == 'all'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi # must match the environment of the Trusted Publisher on PyPI
+      url: https://pypi.org/project/gribkit/${{ needs.version.outputs.version }}/
+    permissions:
+      id-token: write # OIDC Trusted Publishing, no API token
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: gribkit-dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+      - name: Summary
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          {
+            echo "## 🚀 PyPI"
+            echo
+            echo "[gribkit $VERSION](https://pypi.org/project/gribkit/$VERSION/)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Create GitHub Release
+    # After the upload, so a failed publish leaves no tag and the next run reuses the version.
+    needs: [version, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag and the release
+    steps:
+      - name: Create release with generated notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.version.outputs.version_tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "gribkit $VERSION" \
+            --generate-notes \
+            --latest
+          {
+            echo "## 🏷️ GitHub Release"
+            echo
+            echo "[$TAG](https://github.com/$GH_REPO/releases/tag/$TAG)"
+          } >> "$GITHUB_STEP_SUMMARY"
