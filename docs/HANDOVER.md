@@ -173,9 +173,20 @@ The GitHub environment `pypi` already exists.
 ### Security features
 
 As in PredictionDB (PR #226): Dependabot alerts, secret scanning and push protection, a branch ruleset
-for `main` (template `docs/templates/ruleset-main.json`, with `squash` as the only merge method and
-after the history import), OpenSSF Scorecard badge. On 2026-11-01, secret scanning, push protection
-and Dependabot security updates were still off.
+for `main`, OpenSSF Scorecard badge. On 2026-11-01, secret scanning, push protection and Dependabot
+security updates were still off.
+
+The ruleset is in `.github/rulesets/main.json`: no deletion, no force push, PRs required, squash as
+the only merge method. It blocks the direct push of the history import, so apply it after the import
+or disable it for that push. Once `ci.yml` exists, add this rule with the real job names, otherwise
+checks are not enforced (a name that never reports blocks every PR, so verify the names first):
+
+```json
+{"type": "required_status_checks", "parameters": {
+  "strict_required_status_checks_policy": false,
+  "do_not_enforce_on_create": false,
+  "required_status_checks": [{"context": "<job name>", "integration_id": 15368}]}}
+```
 
 ## 6. Requirements (StrictDoc)
 

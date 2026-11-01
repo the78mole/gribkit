@@ -16,8 +16,9 @@ and tick off the acceptance criteria in section 9:
    handover commits. The script prints the commands at the end. This repository already has commits,
    so it is a merge with `--allow-unrelated-histories`.
    **Push this merge directly to `main`, not through a PR.** The repository only allows squash merges
-   for PRs, and squashing would destroy the imported history. Direct pushes work because no ruleset
-   is active yet. Ask me for the go-ahead before this push.
+   for PRs, and squashing would destroy the imported history. Ask me for the go-ahead before this
+   push. If the ruleset `protect main` is already active, the push is refused: ask me to disable it
+   for the import, and do not work around it.
 2. Settle the open decisions in section 8 with me before building on them.
 3. Build the package, docs, license, pre-commit, CI, fuzz, Scorecard and release workflows (Trusted
    Publishing), through PRs from now on. Templates are in `docs/templates/`. Translate the imported
@@ -40,8 +41,10 @@ Notes on the cloud environment:
   see section 5; if the REST call is refused too, ask me to create it locally.
 - `~/.claude` (Daniel's skills and global rules) does not exist here. What you need from it is in
   `docs/templates/CONVENTIONS.md`.
-- The branch ruleset (`docs/templates/ruleset-main.json`) names the check names of PredictionDB. Set
-  it up last, with the job names from the new `ci.yml` and only `squash` as allowed merge method.
+- The branch ruleset is in `.github/rulesets/main.json`. GitHub does not apply this file by itself;
+  Daniel applies it with `gh api`. It has no required status checks yet, because no CI exists. Once
+  `ci.yml` runs, add the job names to the file (rule type `required_status_checks`, format in
+  `docs/HANDOVER.md`, section 5) and tell Daniel to update the ruleset.
 - The repository is set to squash merges only and deletes merged branches. The PR title becomes the
   commit message on `main` and decides the version bump, so it must be a Conventional Commit.
 
