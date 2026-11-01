@@ -1,0 +1,106 @@
+name: CI
+
+# Lint, type check, tests on all supported Python versions, and a build with a check of the wheel
+# contents. Runs on every push and pull request, independent of the release workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: pre-commit (Ruff, mypy, file checks)
+        run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          - os: macos-latest
+            python-version: "3.14"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: pytest
+        run: >-
+          uv run --no-sync pytest
+          --cov=gribkit --cov-report=term-missing --cov-report=xml --cov-report=markdown-append:coverage.md
+      - name: Coverage summary
+        if: always() && hashFiles('coverage.md') != ''
+        run: |
+          {
+            echo "## Coverage (Python ${{ matrix.python-version }}, ${{ matrix.os }})"
+            cat coverage.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Build wheel and sdist
+        run: uv build
+      - name: Check metadata
+        run: uvx twine check --strict dist/*
+      - name: Check wheel contents
+        run: |
+          set -euo pipefail
+          wheel=$(ls dist/*.whl)
+          python3 - "$wheel" <<'PY'
+          import sys
+          import zipfile
+
+          names = set(zipfile.ZipFile(sys.argv[1]).namelist())
+          required = ["gribkit/__init__.py", "gribkit/py.typed"]
+          # Data file of the header parser; present once the modules are imported.
+          optional = ["gribkit/ncep_parameters.json"]
+          missing = [n for n in required if n not in names]
+          if missing:
+              sys.exit(f"missing in wheel: {missing}")
+          for n in optional:
+              print(f"{n}: {'ok' if n in names else 'not present yet'}")
+          licenses = [n for n in names if n.endswith(("/LICENSE", "/NOTICE"))]
+          if len(licenses) < 2:
+              sys.exit(f"LICENSE and NOTICE missing in wheel, found {licenses}")
+          print("\n".join(sorted(names)))
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7

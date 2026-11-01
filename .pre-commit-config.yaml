@@ -1,0 +1,52 @@
+# pre-commit: the same checks as the CI job "Lint and types".
+# Ruff and mypy run locally through uv with the versions from uv.lock, so the same versions check
+# locally and in CI. The file checks come from pinned upstream hook repositories.
+#
+#   uv run pre-commit install           # set up the hook in .git/hooks
+#   uv run pre-commit run --all-files   # check everything, like CI
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+        # Binary fuzz corpus and test fixtures must stay byte-identical.
+        exclude: ^(fuzz/corpus/|tests/fixtures/)
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-ast
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: a76b92851fc9eede9f9bc4073eb55202f34eb0df # frozen: 0.39.0
+    hooks:
+      - id: check-github-workflows
+      - id: check-renovate
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --no-sync ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --no-sync ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: mypy
+        name: mypy
+        # Always checks the whole project (files in pyproject.toml), because type errors can also
+        # arise in unchanged files.
+        entry: uv run --no-sync mypy
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+        require_serial: true

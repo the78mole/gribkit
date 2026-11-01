@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tool caches and reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+coverage.md
+htmlcov/
+
+# Fuzzing (crash files and the working corpus; the seed corpus in fuzz/corpus/ is tracked)
+crash-*
+leak-*
+timeout-*
+oom-*
+slow-unit-*
+
+# Downloaded GRIB data (test fixtures in tests/fixtures/ are tracked)
+*.grib
+*.grib2
+*.grb
+!tests/fixtures/**
+
+# Local configuration
+.env
+.envrc
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
