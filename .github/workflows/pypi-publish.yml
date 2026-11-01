@@ -13,10 +13,9 @@ name: Create Release and Publish to PyPI
 #   everything else          -> patch
 
 on:
-  # The push trigger stays off until the calculated version has been checked in a manual run
-  # with publish_target "none". Enabling it makes every commit on main a PyPI release.
-  # push:
-  #   branches: [main]
+  # Every commit on main is a PyPI release. No paths filter, so that each commit releases.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       publish_target:
