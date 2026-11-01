@@ -135,7 +135,10 @@ jobs:
     needs: [version, build]
     # No PyPI-only option: a version uploaded without its tag would be calculated again by the
     # next run, and PyPI refuses to upload the same version twice.
-    if: github.event_name == 'push' || inputs.publish_target == 'all'
+    # Only main is released; a manual run on another ref only calculates and builds.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || inputs.publish_target == 'all')
     runs-on: ubuntu-latest
     environment:
       name: pypi # must match the environment of the Trusted Publisher on PyPI
