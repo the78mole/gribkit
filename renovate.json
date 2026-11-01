@@ -1,0 +1,80 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "description": [
+    "No automerge: every commit on main is released to PyPI, so each dependency update must be merged deliberately.",
+    "Lockfile maintenance runs monthly and is never merged automatically; lockfile-only changes do not affect users of the package."
+  ],
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "📦 Dependency Dashboard",
+  "labels": [
+    "dependencies"
+  ],
+  "timezone": "Europe/Berlin",
+  "automerge": false,
+  "semanticCommits": "enabled",
+  "pre-commit": {
+    "enabled": true
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on the first day of the month"
+    ],
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Python packages: minor and patch in one PR",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Python dependencies (minor/patch)",
+      "groupSlug": "python-minor-patch"
+    },
+    {
+      "description": "GitHub Actions and pre-commit hooks: minor, patch and digest in one PR",
+      "matchManagers": [
+        "github-actions",
+        "pre-commit"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "groupName": "CI tooling (minor/patch)",
+      "groupSlug": "ci-minor-patch"
+    },
+    {
+      "description": [
+        "Python runtime (.python-version) on its own.",
+        "NOTE: held at 3.14.x because eccodeslib/eckitlib do not ship wheels for 3.15 yet (https://github.com/ecmwf/eccodes/issues/629).",
+        "Remove allowedVersions once all dependencies support 3.15."
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "allowedVersions": "/^3\\.14(\\.\\d+)?$/",
+      "groupName": "Python runtime",
+      "groupSlug": "python-runtime"
+    },
+    {
+      "description": "Major updates stay separate PRs and get a label",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "addLabels": [
+        "major"
+      ]
+    }
+  ]
+}

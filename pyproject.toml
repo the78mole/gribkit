@@ -1,0 +1,101 @@
+[project]
+name = "gribkit"
+# Set by the release workflow from the calculated tag; keep the static value here.
+version = "0.1.0"
+description = "GRIB2 partial downloads: read NCEP .idx files, merge byte ranges, parse headers, crop to a region"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Daniel Glaser" }]
+keywords = ["grib", "grib2", "gfs", "noaa", "ncep", "idx", "weather", "eccodes", "byte-range"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Typing :: Typed",
+]
+dependencies = [
+    "eccodes>=2.40",
+    "eccodeslib>=2.40",
+    "numpy>=2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/the78mole/gribkit"
+Source = "https://github.com/the78mole/gribkit"
+Issues = "https://github.com/the78mole/gribkit/issues"
+Changelog = "https://github.com/the78mole/gribkit/releases"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.170",
+    "mypy>=1.18",
+    "pre-commit>=4.3",
+    "pytest>=8.4",
+    "pytest-cov>=7.0",
+    "ruff>=0.14",
+]
+# Atheris only ships Linux x86_64 wheels; install with `uv sync --group fuzz`.
+fuzz = [
+    "atheris>=3.1; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gribkit"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/gribkit", "tests", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "DTZ"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gribkit"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = ["src"]
+explicit_package_bases = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["eccodes.*", "gribapi.*", "atheris"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "-m", "not network"]
+# Deprecated APIs should fail the tests, not surface only when they are removed.
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::FutureWarning",
+]
+markers = [
+    "network: needs internet access to external sources (run with -m network)",
+]
+
+[tool.coverage.run]
+source = ["gribkit"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
