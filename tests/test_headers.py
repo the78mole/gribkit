@@ -111,9 +111,9 @@ def test_unknown_parameter_keeps_numbers() -> None:
 def test_head_errors() -> None:
     """@relation(SWR-GRIB-004, scope=function)"""
     msg = _message()
-    with pytest.raises(HeaderError, match="GRIB-Kennung"):
+    with pytest.raises(HeaderError, match="GRIB indicator"):
         parse_head(b"<html>" + msg)
-    with pytest.raises(HeaderError, match="Sektion 4"):
+    with pytest.raises(HeaderError, match="Section 4"):
         parse_head(msg[:40])
 
 
@@ -121,17 +121,17 @@ def test_find_boundary() -> None:
     """@relation(SWR-GRIB-004, scope=function)"""
     msg = _message()
     data = msg + msg + msg
-    # Mitten in der ersten Nachricht: nächster Anfang ist die zweite
+    # In the middle of the first message: the next start is the second one
     assert find_boundary(data[100:], len(data) - 100) == len(msg) - 100
-    # Ein "GRIB" ohne vorangehendes 7777 zählt nicht
+    # A "GRIB" without a preceding 7777 does not count
     assert find_boundary(b"xxxxGRIB" + b"\0" * 20, 1000) is None
-    # Länge, die nicht mehr in die Datei passt, ist ein Fehltreffer
+    # A length that no longer fits into the file is a false match
     assert find_boundary(data[len(msg) - 4 :], len(msg)) is None
 
 
 def test_complete_lines_match_noaa_idx() -> None:
-    # Je Name, Flächenart und Zeitangabe eine Nachricht aus GFS v15 (AWS, 2021-03-01 00Z):
-    # Kopf (Sektion 0 bis 4) und die Zeile aus der .idx von NOAA (wgrib2)
+    # One message per name, level type and time from GFS v15 (AWS, 2021-03-01 00Z):
+    # header (sections 0 to 4) and the line from the NOAA .idx (wgrib2)
     """@relation(SWR-GRIB-004, scope=function)"""
     data = json.loads(gzip.decompress((FIXTURES / "gfs_v15_heads.json.gz").read_bytes()))
     assert len(data["rows"]) > 300
@@ -143,7 +143,7 @@ def test_complete_lines_match_noaa_idx() -> None:
 
 
 def test_complete_keeps_template_keys_apart() -> None:
-    # Vorlagen-Schlüssel bleiben, wie sie sind; nur complete nutzt die ganze Tabelle
+    # Template keys stay as they are; only complete uses the full table
     """@relation(SWR-GRIB-004, scope=function)"""
     msg = _message(discipline=0, parameterCategory=1, parameterNumber=22)
     assert parse_head(msg).var == "var0_1_22"

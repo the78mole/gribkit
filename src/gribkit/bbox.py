@@ -7,9 +7,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class BBox:
-    """Geografischer Ausschnitt in Grad. ``west``/``east`` dürfen negativ sein;
-    ``west > east`` ist nicht erlaubt (für Ausschnitte über die Datumsgrenze
-    ``east`` größer 180 angeben).
+    """Geographic region in degrees. ``west``/``east`` may be negative;
+    ``west > east`` is not allowed (for regions across the antimeridian, give
+    ``east`` greater than 180).
 
     @relation(SWR-GRIB-006, scope=class)
     """
@@ -21,9 +21,9 @@ class BBox:
 
     def __post_init__(self) -> None:
         if not -90 <= self.south < self.north <= 90:
-            raise ValueError(f"Ungültige Breiten: south={self.south}, north={self.north}")
+            raise ValueError(f"Invalid latitudes: south={self.south}, north={self.north}")
         if not self.west < self.east or self.east - self.west > 360:
-            raise ValueError(f"Ungültige Längen: west={self.west}, east={self.east}")
+            raise ValueError(f"Invalid longitudes: west={self.west}, east={self.east}")
 
     @property
     def width(self) -> float:

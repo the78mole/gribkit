@@ -1,14 +1,14 @@
-"""Atheris-Fuzzer für die Parser in gribkit (SYSR-SEC-009).
+"""Atheris fuzzer for the parsers in gribkit.
 
-Ein Ziel je Aufruf, die Eingabe ist ein beliebiger Byte-Strom:
+One target per call, the input is an arbitrary byte stream:
 
-    uv run --group fuzz python fuzz/gribkit_fuzz.py idx  -max_total_time=300 fuzz/korpus/idx
-    uv run --group fuzz python fuzz/gribkit_fuzz.py head -max_total_time=300 fuzz/korpus/head
+    uv run --group fuzz python fuzz/gribkit_fuzz.py idx  -max_total_time=300 fuzz/corpus/idx
+    uv run --group fuzz python fuzz/gribkit_fuzz.py head -max_total_time=300 fuzz/corpus/head
 
-Erlaubt sind nur die vorgesehenen Fehler ``IdxParseError`` bzw. ``HeaderError``. Jede andere
-Ausnahme bricht ab, libFuzzer schreibt die Eingabe als ``crash-*`` ins Arbeitsverzeichnis.
-Die Property-Tests in ``packages/gribkit/tests/test_robustheit.py`` prüfen dieselben
-Eigenschaften kürzer bei jedem Pull Request.
+Only the intended errors ``IdxParseError`` and ``HeaderError`` are allowed. Any other exception
+aborts the run, and libFuzzer writes the input as ``crash-*`` to the working directory. The
+property tests in ``tests/test_robustness.py`` check the same properties more briefly on every
+pull request.
 """
 
 from __future__ import annotations
@@ -26,46 +26,46 @@ with atheris.instrument_imports():
 
 def fuzz_idx(data: bytes) -> None:
     fdp = atheris.FuzzedDataProvider(data)
-    groesse = fdp.ConsumeIntInRange(0, 2**40) if fdp.ConsumeBool() else None
-    luecke = fdp.ConsumeIntInRange(0, 2**30)
+    size = fdp.ConsumeIntInRange(0, 2**40) if fdp.ConsumeBool() else None
+    gap = fdp.ConsumeIntInRange(0, 2**30)
     text = fdp.ConsumeUnicodeNoSurrogates(fdp.remaining_bytes())
     try:
-        eintraege = parse_idx(text, groesse)
+        entries = parse_idx(text, size)
     except IdxParseError:
         return
-    for e in eintraege:
+    for e in entries:
         if e.length is not None and e.length <= 0:
-            raise AssertionError(f"Länge {e.length} für {e}")
-    bereiche = merge_ranges(eintraege, max_gap=luecke)
-    for a, b in pairwise(bereiche):
+            raise AssertionError(f"Length {e.length} for {e}")
+    ranges = merge_ranges(entries, max_gap=gap)
+    for a, b in pairwise(ranges):
         if a.end is None or a.end >= b.start:
-            raise AssertionError(f"Bereiche überlappen: {a.header} {b.header}")
+            raise AssertionError(f"Ranges overlap: {a.header} {b.header}")
 
 
 def fuzz_head(data: bytes) -> None:
     fdp = atheris.FuzzedDataProvider(data)
     complete = fdp.ConsumeBool()
-    rest = fdp.ConsumeIntInRange(0, 2**40)
-    roh = fdp.ConsumeBytes(fdp.remaining_bytes())
+    size_left = fdp.ConsumeIntInRange(0, 2**40)
+    raw = fdp.ConsumeBytes(fdp.remaining_bytes())
     try:
-        head = parse_head(roh, complete=complete)
+        head = parse_head(raw, complete=complete)
     except HeaderError:
         pass
     else:
         idx_line(entry(1, 0, head, "2026010100"))
-    pos = find_boundary(roh, rest)
-    if pos is not None and roh[pos - 4 : pos + 4] != b"7777GRIB":
-        raise AssertionError(f"Grenze {pos} zeigt nicht auf 7777GRIB")
+    pos = find_boundary(raw, size_left)
+    if pos is not None and raw[pos - 4 : pos + 4] != b"7777GRIB":
+        raise AssertionError(f"Boundary {pos} does not point to 7777GRIB")
 
 
-ZIELE = {"idx": fuzz_idx, "head": fuzz_head}
+TARGETS = {"idx": fuzz_idx, "head": fuzz_head}
 
 
 def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] not in ZIELE:
-        sys.exit(f"Ziel fehlt: {' | '.join(ZIELE)}")
-    ziel = ZIELE[sys.argv.pop(1)]
-    atheris.Setup(sys.argv, ziel)
+    if len(sys.argv) < 2 or sys.argv[1] not in TARGETS:
+        sys.exit(f"Missing target: {' | '.join(TARGETS)}")
+    target = TARGETS[sys.argv.pop(1)]
+    atheris.Setup(sys.argv, target)
     atheris.Fuzz()
 
 

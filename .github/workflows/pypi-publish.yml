@@ -39,7 +39,7 @@ concurrency:
 jobs:
   version:
     name: Calculate version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.semver.outputs.version }}
       version_tag: ${{ steps.semver.outputs.version_tag }}
@@ -80,7 +80,7 @@ jobs:
   build:
     name: Build distribution
     needs: [version, ci]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -139,7 +139,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || inputs.publish_target == 'all')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment:
       name: pypi # must match the environment of the Trusted Publisher on PyPI
       url: https://pypi.org/project/gribkit/${{ needs.version.outputs.version }}/
@@ -167,7 +167,7 @@ jobs:
     name: Create GitHub Release
     # After the upload, so a failed publish leaves no tag and the next run reuses the version.
     needs: [version, publish]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write # create the tag and the release
     steps:

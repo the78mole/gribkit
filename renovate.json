@@ -56,6 +56,17 @@
     },
     {
       "description": [
+        "GitHub-hosted runner images (runs-on: ubuntu-XX.XX) are pinned and updated by Renovate in their own PR.",
+        "A new Ubuntu LTS changes the build environment, so it is never grouped with other updates."
+      ],
+      "matchDatasources": [
+        "github-runners"
+      ],
+      "groupName": "GitHub runner images",
+      "groupSlug": "github-runners"
+    },
+    {
+      "description": [
         "Python runtime (.python-version) on its own.",
         "NOTE: held at 3.14.x because eccodeslib/eckitlib do not ship wheels for 3.15 yet (https://github.com/ecmwf/eccodes/issues/629).",
         "Remove allowedVersions once all dependencies support 3.15."

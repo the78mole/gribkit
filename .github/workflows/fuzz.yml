@@ -1,11 +1,10 @@
 name: Fuzzing
 
-# Abdeckungsgesteuertes Fuzzing der Parser für Eingaben von außen (SYSR-SEC-009) mit
-# Atheris (libFuzzer). Läuft wöchentlich und bei Änderungen an gribkit oder am Fuzzer
-# je Ziel einige Minuten; die schnellen Property-Tests mit Hypothesis laufen dagegen in
-# der normalen CI. Ein Fund lässt den Job rot werden und hängt die auslösende Eingabe
-# (crash-*) als Artefakt an. Der gewachsene Korpus wird zwischen den Läufen im Cache
-# gehalten, der Startkorpus liegt unter fuzz/korpus/.
+# Coverage-guided fuzzing of the parsers for external input with Atheris (libFuzzer). Runs weekly
+# and on changes to gribkit or the fuzzer, a few minutes per target; the fast property tests
+# with Hypothesis run in the regular CI instead. A finding turns the job red and attaches the
+# triggering input (crash-*) as an artifact. The grown corpus is kept in the cache between runs,
+# the seed corpus is in fuzz/corpus/.
 
 on:
   schedule:
@@ -13,18 +12,18 @@ on:
   push:
     branches: [main]
     paths:
-      - packages/gribkit/src/**
+      - src/**
       - fuzz/**
       - .github/workflows/fuzz.yml
   pull_request:
     paths:
-      - packages/gribkit/src/**
+      - src/**
       - fuzz/**
       - .github/workflows/fuzz.yml
   workflow_dispatch:
     inputs:
-      sekunden:
-        description: Laufzeit je Ziel in Sekunden
+      seconds:
+        description: Run time per target in seconds
         default: "600"
 
 concurrency:
@@ -36,40 +35,42 @@ permissions:
 
 jobs:
   fuzz:
-    name: Fuzzing ${{ matrix.ziel }}
+    name: Fuzzing ${{ matrix.target }}
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        ziel: [idx, head]
+        target: [idx, head]
     env:
-      # Pull Requests kurz, sonst länger
-      SEKUNDEN: ${{ inputs.sekunden || (github.event_name == 'pull_request' && '120') || '600' }}
+      # Short on pull requests, longer otherwise
+      SECONDS_PER_TARGET: ${{ inputs.seconds || (github.event_name == 'pull_request' && '120') || '600' }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           save-cache: false
-      - run: uv sync --locked --all-packages --group fuzz
-      - name: Korpus aus früheren Läufen
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - run: uv sync --locked --group fuzz
+      - name: Corpus from earlier runs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: korpus
-          key: fuzz-korpus-${{ matrix.ziel }}-${{ github.run_id }}
-          restore-keys: fuzz-korpus-${{ matrix.ziel }}-
-      - name: Fuzzen
+          path: corpus
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+      - name: Fuzz
         run: |
-          mkdir -p korpus funde
-          cp -n fuzz/korpus/"$ZIEL"/* korpus/ 2>/dev/null || true
-          uv run --no-sync python fuzz/gribkit_fuzz.py "$ZIEL" \
-            -max_total_time="$SEKUNDEN" -timeout=10 -rss_limit_mb=2048 \
-            -artifact_prefix=funde/ korpus
+          mkdir -p corpus findings
+          cp -n fuzz/corpus/"$TARGET"/* corpus/ 2>/dev/null || true
+          uv run --no-sync python fuzz/gribkit_fuzz.py "$TARGET" \
+            -max_total_time="$SECONDS_PER_TARGET" -timeout=10 -rss_limit_mb=2048 \
+            -artifact_prefix=findings/ corpus
         env:
-          ZIEL: ${{ matrix.ziel }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+          TARGET: ${{ matrix.target }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: fuzz-funde-${{ matrix.ziel }}
-          path: funde/
+          name: fuzz-findings-${{ matrix.target }}
+          path: findings/
           retention-days: 30

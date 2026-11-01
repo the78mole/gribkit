@@ -1,12 +1,12 @@
-"""Parser für NCEP-Inventardateien (``.idx``) und Bildung von Byte-Bereichen.
+"""Parser for NCEP inventory files (``.idx``) and construction of byte ranges.
 
-Eine ``.idx``-Zeile hat die Form::
+An ``.idx`` line has the form::
 
     581:415092545:d=2026102006:TMP:2 m above ground:42 hour fcst:
 
-Die Länge einer Nachricht ergibt sich aus dem Offset der folgenden Zeile.
-Für die letzte Nachricht ist die Länge nur bekannt, wenn die Dateigröße
-übergeben wird; sonst bleibt sie offen (``Range: bytes=<offset>-``).
+The length of a message follows from the offset of the next line. For the
+last message the length is only known if the file size is passed; otherwise
+it stays open (``Range: bytes=<offset>-``).
 
 @relation(SWA-GRIB-IDX, scope=file)
 """
@@ -21,7 +21,7 @@ from itertools import pairwise
 
 @dataclass(frozen=True, slots=True)
 class IdxEntry:
-    """Eine Nachricht aus einer ``.idx``-Datei."""
+    """One message from an ``.idx`` file."""
 
     number: str
     offset: int
@@ -33,23 +33,23 @@ class IdxEntry:
 
     @property
     def end(self) -> int | None:
-        """Letztes Byte (inklusive) oder ``None``, wenn unbekannt."""
+        """Last byte (inclusive), or ``None`` if unknown."""
         return None if self.length is None else self.offset + self.length - 1
 
     @property
     def key(self) -> str:
-        """``VAR:LEVEL:FCST``, wie wgrib2 es ausgibt."""
+        """``VAR:LEVEL:FCST``, as printed by wgrib2."""
         return f"{self.var}:{self.level}:{self.fcst}"
 
 
 @dataclass(frozen=True, slots=True)
 class MessageSpec:
-    """Auswahl einer Nachricht über Kurzname und Level.
+    """Selection of a message by short name and level.
 
-    ``fcst`` ist ein optionaler regulärer Ausdruck auf das Prognosefeld der
-    ``.idx``-Zeile, z. B. ``"ave"`` für Mittelwerte. Ohne ``fcst`` werden
-    alle Nachrichten mit passendem ``VAR:LEVEL`` gewählt (bei GFS z. B. für
-    ``TCDC`` sowohl der Momentanwert als auch das Intervallmittel).
+    ``fcst`` is an optional regular expression on the forecast field of the
+    ``.idx`` line, e.g. ``"ave"`` for averages. Without ``fcst``, all messages
+    with a matching ``VAR:LEVEL`` are selected (for GFS ``TCDC``, for example,
+    both the instantaneous value and the interval average).
 
     @relation(SWR-GRIB-002, scope=class)
     """
@@ -70,7 +70,7 @@ class MessageSpec:
 
 @dataclass(frozen=True, slots=True)
 class ByteRange:
-    """Zusammenhängender Byte-Bereich (``end`` inklusive, ``None`` = bis Dateiende)."""
+    """Contiguous byte range (``end`` inclusive, ``None`` = to the end of the file)."""
 
     start: int
     end: int | None
@@ -85,13 +85,13 @@ class ByteRange:
         return None if self.end is None else self.end - self.start + 1
 
     def extract(self, data: bytes) -> bytes:
-        """Schneidet aus den geladenen Bytes nur die gewählten Nachrichten heraus
-        (bei verschmolzenen Bereichen liegen dazwischen fremde Nachrichten).
+        """Cut only the selected messages out of the downloaded bytes
+        (merged ranges contain unselected messages in between).
 
         @relation(SWR-GRIB-003, scope=function)
         """
         if self.length is not None and len(data) != self.length:
-            raise ValueError(f"{self.header}: {len(data)} Bytes erhalten, {self.length} erwartet")
+            raise ValueError(f"{self.header}: got {len(data)} bytes, expected {self.length}")
         parts = []
         for e in self.entries:
             lo = e.offset - self.start
@@ -106,8 +106,8 @@ class IdxParseError(ValueError):
 
 
 def parse_idx(text: str, total_size: int | None = None) -> list[IdxEntry]:
-    """Liest eine ``.idx``-Datei. Unter-Nachrichten (``12.1``, ``12.2``) teilen
-    sich einen Offset und damit denselben Byte-Bereich.
+    """Read an ``.idx`` file. Sub-messages (``12.1``, ``12.2``) share an offset
+    and therefore the same byte range.
 
     @relation(SWR-GRIB-001, SWR-GRIB-008, scope=function)
     """
@@ -118,11 +118,11 @@ def parse_idx(text: str, total_size: int | None = None) -> list[IdxEntry]:
             continue
         parts = line.split(":")
         if len(parts) < 6:
-            raise IdxParseError(f"Zeile {lineno}: zu wenige Felder: {line!r}")
+            raise IdxParseError(f"Line {lineno}: too few fields: {line!r}")
         try:
             offset = int(parts[1])
         except ValueError as exc:
-            raise IdxParseError(f"Zeile {lineno}: Offset ist keine Zahl: {line!r}") from exc
+            raise IdxParseError(f"Line {lineno}: offset is not a number: {line!r}") from exc
         number, _, date, var, level = parts[:5]
         fcst = ":".join(parts[5:]).rstrip(":")
         rows.append((number, offset, date.removeprefix("d="), var, level, fcst))
@@ -131,7 +131,7 @@ def parse_idx(text: str, total_size: int | None = None) -> list[IdxEntry]:
     next_offset = dict(pairwise(offsets))
     if total_size is not None and offsets:
         if total_size <= offsets[-1]:
-            raise IdxParseError("Dateigröße liegt vor dem letzten Offset")
+            raise IdxParseError("File size is before the last offset")
         next_offset[offsets[-1]] = total_size
 
     entries = []
@@ -144,7 +144,7 @@ def parse_idx(text: str, total_size: int | None = None) -> list[IdxEntry]:
 
 
 def select(entries: Iterable[IdxEntry], specs: Sequence[MessageSpec]) -> list[IdxEntry]:
-    """Alle Einträge, die mindestens eine Spezifikation erfüllen (Reihenfolge der Datei).
+    """All entries that match at least one spec (in file order).
 
     @relation(SWR-GRIB-002, scope=function)
     """
@@ -152,7 +152,7 @@ def select(entries: Iterable[IdxEntry], specs: Sequence[MessageSpec]) -> list[Id
 
 
 def missing_specs(entries: Iterable[IdxEntry], specs: Sequence[MessageSpec]) -> list[MessageSpec]:
-    """Spezifikationen ohne Treffer, z. B. akkumulierte Größen im Analyse-Schritt f000.
+    """Specs without a match, e.g. accumulated fields in the analysis step f000.
 
     @relation(SWR-GRIB-002, scope=function)
     """
@@ -161,11 +161,11 @@ def missing_specs(entries: Iterable[IdxEntry], specs: Sequence[MessageSpec]) -> 
 
 
 def merge_ranges(entries: Iterable[IdxEntry], max_gap: int = 0) -> list[ByteRange]:
-    """Fasst gewählte Nachrichten zu möglichst wenigen Byte-Bereichen zusammen.
+    """Merge the selected messages into as few byte ranges as possible.
 
-    Nachrichten mit gleichem Offset (Unter-Nachrichten) werden nur einmal
-    geladen. Liegen zwei Bereiche höchstens ``max_gap`` Bytes auseinander,
-    werden sie verschmolzen (die Lücke wird mitgeladen und verworfen).
+    Messages with the same offset (sub-messages) are downloaded only once. If
+    two ranges are at most ``max_gap`` bytes apart, they are merged (the gap is
+    downloaded and discarded).
 
     @relation(SWR-GRIB-003, SWR-GRIB-008, scope=function)
     """
