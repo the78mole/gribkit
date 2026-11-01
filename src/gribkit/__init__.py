@@ -1,4 +1,4 @@
-"""GRIB2-Werkzeuge für Partial Downloads."""
+"""Tools for GRIB2 partial downloads."""
 
 from importlib.metadata import PackageNotFoundError, version
 

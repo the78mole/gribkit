@@ -33,9 +33,9 @@ def test_iter_messages_splits_and_validates(global_message: tuple[bytes, Any, An
     """@relation(SWR-GRIB-005, scope=function)"""
     msg, _, _ = global_message
     assert list(iter_messages(msg + msg)) == [msg, msg]
-    with pytest.raises(GribError, match="abgeschnitten"):
+    with pytest.raises(GribError, match="truncated"):
         list(iter_messages(msg + msg[:-10]))
-    with pytest.raises(GribError, match="GRIB-Kennung"):
+    with pytest.raises(GribError, match="GRIB indicator"):
         list(iter_messages(b"<html>" + msg))
 
 
@@ -64,7 +64,7 @@ def test_crop_across_prime_meridian() -> None:
     assert values.shape == (6, 11)
     assert keys["longitudeOfFirstGridPointInDegrees"] == 355
     assert keys["longitudeOfLastGridPointInDegrees"] == 5
-    # Werte wurden mit Quell-Länge 355..359, 0..5 erzeugt
+    # values were generated with source longitudes 355..359, 0..5
     expected_lon = np.array([355, 356, 357, 358, 359, 0, 1, 2, 3, 4, 5])
     np.testing.assert_allclose(values[0], 50 * 1000 + expected_lon, atol=0.01)
     np.testing.assert_allclose(np.mod(lons[0], 360), expected_lon)
@@ -100,7 +100,7 @@ def test_crop_quarter_degree_grid_point_count() -> None:
     """@relation(SWR-GRIB-006, scope=function)"""
     msg, _, _ = make_global_message(inc=0.25, values_fn=lambda lat, lon: lat + 0 * lon)
     values, *_ = _decode(crop(msg, BBox(north=58, south=44, west=0, east=20)))
-    assert values.shape == (57, 81)  # 4 617 Punkte, wie in ARCHITEKTUR.md 4.3
+    assert values.shape == (57, 81)  # 4,617 points
 
 
 def test_crop_empty_box_raises(global_message: tuple[bytes, Any, Any]) -> None:

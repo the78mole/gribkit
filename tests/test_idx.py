@@ -33,7 +33,7 @@ def test_parse_real_gfs_idx(f042: list[IdxEntry]) -> None:
         "42 hour fcst",
     )
     assert first.length == f042[1].offset
-    # letzte Nachricht: Länge ohne Dateigröße unbekannt
+    # last message: length unknown without the file size
     assert f042[-1].length is None and f042[-1].end is None
 
 
@@ -89,7 +89,7 @@ def test_merge_adjacent_and_gap() -> None:
     merged = merge_ranges([e[0], e[3]], max_gap=200)
     assert len(merged) == 1 and merged[0].header == "bytes=0-399"
     payload = bytes(range(256)) + bytes(144)
-    # nur A (0..99) und D (300..399), C/B-Lücke verworfen
+    # only A (0..99) and D (300..399), the B/C gap is discarded
     assert merged[0].extract(payload) == payload[0:100] + payload[300:400]
 
 

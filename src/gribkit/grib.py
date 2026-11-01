@@ -1,8 +1,8 @@
-"""GRIB2-Nachrichten trennen und auf einen geografischen Ausschnitt zuschneiden.
+"""Split GRIB2 messages and crop them to a geographic region.
 
-Dekodieren und Neucodieren übernimmt ecCodes. Die Packungsart der Quelle
-(bei GFS ``grid_complex_spatial_differencing``) bleibt erhalten, ebenso die
-Genauigkeit über den Dezimal-Skalierungsfaktor.
+ecCodes does the decoding and re-encoding. The packing type of the source
+(``grid_complex_spatial_differencing`` for GFS) is kept, and so is the
+precision through the decimal scale factor.
 
 @relation(SWA-GRIB-GRIB, scope=file)
 """
@@ -27,10 +27,10 @@ class GribError(ValueError):
 
 
 def iter_messages(data: bytes) -> Iterator[bytes]:
-    """Zerlegt einen Bytestrom in einzelne GRIB2-Nachrichten.
+    """Split a byte stream into individual GRIB2 messages.
 
-    Prüft Kennung ``GRIB``, Edition 2 und Endkennung ``7777``. Bytes zwischen
-    den Nachrichten sind nicht erlaubt; so fallen abgeschnittene Downloads auf.
+    Checks the ``GRIB`` indicator, edition 2 and the ``7777`` end marker. Bytes
+    between messages are not allowed, so truncated downloads are detected.
 
     @relation(SWR-GRIB-005, scope=function)
     """
@@ -38,18 +38,18 @@ def iter_messages(data: bytes) -> Iterator[bytes]:
     n = len(data)
     while pos < n:
         if data[pos : pos + 4] != b"GRIB":
-            raise GribError(f"Keine GRIB-Kennung an Byte {pos}")
+            raise GribError(f"No GRIB indicator at byte {pos}")
         if n - pos < 16:
-            raise GribError(f"Abgeschnittener Kopf an Byte {pos}")
+            raise GribError(f"Truncated header at byte {pos}")
         edition = data[pos + 7]
         if edition != 2:
-            raise GribError(f"Nur GRIB2 unterstützt, Edition {edition} an Byte {pos}")
+            raise GribError(f"Only GRIB2 is supported, edition {edition} at byte {pos}")
         (length,) = struct.unpack(">Q", data[pos + 8 : pos + 16])
         end = pos + length
         if end > n:
-            raise GribError(f"Nachricht an Byte {pos} abgeschnitten ({n - pos} von {length} Bytes)")
+            raise GribError(f"Message at byte {pos} is truncated ({n - pos} of {length} bytes)")
         if data[end - 4 : end] != b"7777":
-            raise GribError(f"Endkennung 7777 fehlt in Nachricht an Byte {pos}")
+            raise GribError(f"End marker 7777 missing in message at byte {pos}")
         yield data[pos:end]
         pos = end
 
@@ -65,6 +65,7 @@ class MessageInfo:
 
 
 def describe(message: bytes) -> MessageInfo:
+    """Read the key metadata of a GRIB2 message with ecCodes."""
     import eccodes as ec
 
     h = ec.codes_new_from_message(message)
@@ -86,13 +87,13 @@ def _axis(first: float, inc: float, count: int, positive: bool) -> np.ndarray:
 
 
 def crop_message(message: bytes, bbox: BBox, packing: str | None = None) -> bytes:
-    """Schneidet eine ``regular_ll``-Nachricht auf alle Gitterpunkte innerhalb von ``bbox``.
+    """Crop a ``regular_ll`` message to all grid points inside ``bbox``.
 
-    Längen werden modulo 360 behandelt, sodass auch Ausschnitte über den
-    Nullmeridian (``west < 0`` bei einem 0-360°-Gitter) funktionieren.
-    Die Ausgabe ist immer Nord→Süd abgetastet (wie die globalen GFS-Dateien),
-    damit Bronze unabhängig vom Endpunkt einheitlich ist. ``packing`` setzt
-    optional eine andere Packungsart (z. B. ``grid_complex_spatial_differencing``).
+    Longitudes are handled modulo 360, so regions across the prime meridian
+    (``west < 0`` on a 0-360° grid) work as well. The output is always scanned
+    north to south (like the global GFS files), so the result is uniform
+    regardless of the source. ``packing`` optionally sets a different packing
+    type (e.g. ``grid_complex_spatial_differencing``).
 
     @relation(SWR-GRIB-006, SWR-GRIB-007, scope=function)
     """
@@ -101,9 +102,9 @@ def crop_message(message: bytes, bbox: BBox, packing: str | None = None) -> byte
     h = ec.codes_new_from_message(message)
     try:
         if ec.codes_get(h, "gridType") != "regular_ll":
-            raise GribError(f"Gittertyp {ec.codes_get(h, 'gridType')!r} wird nicht unterstützt")
+            raise GribError(f"Grid type {ec.codes_get(h, 'gridType')!r} is not supported")
         if ec.codes_get(h, "iScansNegatively") or ec.codes_get(h, "jPointsAreConsecutive"):
-            raise GribError("Nur Abtastung West→Ost mit zeilenweiser Anordnung unterstützt")
+            raise GribError("Only west-to-east scanning with row-major order is supported")
         ni, nj = ec.codes_get(h, "Ni"), ec.codes_get(h, "Nj")
         di = ec.codes_get(h, "iDirectionIncrementInDegrees")
         dj = ec.codes_get(h, "jDirectionIncrementInDegrees")
@@ -117,7 +118,7 @@ def crop_message(message: bytes, bbox: BBox, packing: str | None = None) -> byte
         cols = np.flatnonzero(rel <= bbox.width + _EPS)
         cols = cols[np.argsort(rel[cols], kind="stable")]
         if rows.size == 0 or cols.size == 0:
-            raise GribError(f"Ausschnitt {bbox} enthält keine Gitterpunkte")
+            raise GribError(f"Region {bbox} contains no grid points")
 
         values = ec.codes_get_values(h).reshape(nj, ni)
         sub = values[np.ix_(rows, cols)]
@@ -146,7 +147,7 @@ def crop_message(message: bytes, bbox: BBox, packing: str | None = None) -> byte
 
 
 def crop(data: bytes, bbox: BBox, packing: str | None = None) -> bytes:
-    """Schneidet alle Nachrichten eines GRIB2-Bytestroms zu.
+    """Crop all messages of a GRIB2 byte stream.
 
     @relation(SWR-GRIB-006, scope=function)
     """

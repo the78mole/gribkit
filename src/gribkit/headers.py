@@ -1,19 +1,20 @@
-"""Inventar einer GRIB2-Datei aus den Nachrichtenköpfen, wenn es keine ``.idx`` gibt.
+"""Inventory of a GRIB2 file from its message headers, for files without an ``.idx``.
 
-Archive wie NCAR GDEX (d084001) halten nur die GRIB-Dateien vor. Statt der ganzen Datei werden
-je Nachricht die ersten Bytes per Range gelesen: Sektion 0 nennt die Länge (damit den Anfang
-der nächsten Nachricht), Sektion 4 Parameter, Fläche und Prognosezeit. Daraus entsteht eine
-Zeile wie in einer ``.idx`` (wgrib2-Namen), sodass Auswahl und Byte-Bereiche aus
-:mod:`gribkit.idx` unverändert gelten.
+Archives such as NCAR GDEX (d084001) only provide the GRIB files. Instead of the whole file,
+the first bytes of each message are read with a range request: section 0 gives the length (and
+with it the start of the next message), section 4 the parameter, level and forecast time. From
+this, a line like in an ``.idx`` file (wgrib2 names) is built, so selection and byte ranges from
+:mod:`gribkit.idx` work unchanged.
 
-Die Namen decken die Parameter ab, die die Quellen-Konfiguration anfragt, und einige
-Nachbarn; unbekannte Parameter heißen ``var<D>_<K>_<N>`` und werden nie ausgewählt. Diese
-Schlüssel stecken auch in den Kopf-Vorlagen der Quellen und bleiben deshalb, wie sie sind.
+By default the names cover a fixed set of common GFS parameters (:data:`PARAMETERS`); unknown
+parameters are named ``var<D>_<K>_<N>`` and are never selected. These keys are stable, because
+callers may store them in header templates.
 
-Mit ``complete=True`` entsteht dagegen eine Zeile wie von ``wgrib2 -s``: Name aus der ganzen
-NCEP-Tabelle 4.2 (``ncep_parameters.json``), alle Flächentypen der GFS-Dateien und das
-Bezugsdatum aus Sektion 1. Geprüft an den ``.idx`` von NOAA für GFS v15 (AWS, 2021-03-01).
-Damit lassen sich vollständige ``.idx`` für Archive ohne Inventar schreiben (:func:`idx_line`).
+With ``complete=True`` the line matches ``wgrib2 -s`` instead: the name comes from the full
+NCEP table 4.2 (``ncep_parameters.json``), all level types of the GFS files are covered, and the
+reference date comes from section 1. Verified against the NOAA ``.idx`` files for GFS v15 (AWS,
+2021-03-01). This allows writing complete ``.idx`` files for archives without an inventory
+(:func:`idx_line`).
 
 @relation(SWA-GRIB-HEADERS, scope=file)
 """
@@ -28,10 +29,10 @@ from importlib import resources
 
 from gribkit.idx import IdxEntry
 
-#: So viele Bytes je Nachricht lesen; GFS braucht für Sektion 0 bis 4 etwa 160
+#: Bytes to read per message; GFS needs about 160 for sections 0 to 4
 HEAD_BYTES = 512
 
-#: (Disziplin, Kategorie, Parameter) → wgrib2-Name, NCEP-Tabellen wie in den GFS-``.idx``
+#: (discipline, category, parameter) → wgrib2 name, NCEP tables as in the GFS ``.idx`` files
 PARAMETERS: dict[tuple[int, int, int], str] = {
     (0, 0, 0): "TMP",
     (0, 0, 4): "TMAX",
@@ -74,7 +75,7 @@ PARAMETERS: dict[tuple[int, int, int], str] = {
     (2, 0, 192): "SOILW",
 }
 
-#: Flächentypen ohne Höhenangabe
+#: Level types without a value
 _SURFACES = {
     1: "surface",
     8: "top of atmosphere",
@@ -83,7 +84,7 @@ _SURFACES = {
     200: "entire atmosphere (considered as a single layer)",
 }
 
-#: ``complete``: Flächentypen ohne Höhenangabe, Namen wie bei wgrib2
+#: ``complete``: level types without a value, names as in wgrib2
 _SURFACES_COMPLETE = {
     **_SURFACES,
     2: "cloud base",
@@ -122,7 +123,7 @@ _SURFACES_COMPLETE = {
     252: "deep convective cloud top level",
 }
 
-#: ``complete``: Flächentypen mit Wert → (Einzelwert, Schicht), ``{a}``/``{b}`` mit ``%g``
+#: ``complete``: level types with a value → (single level, layer), ``{a}``/``{b}`` as ``%g``
 _VALUED = {
     100: ("{a} mb", "{a}-{b} mb"),
     102: ("{a} m above mean sea level", "{a}-{b} m above mean sea level"),
@@ -135,31 +136,31 @@ _VALUED = {
     109: ("PV={a} (Km^2/kg/s) surface", "PV={a}-{b} (Km^2/kg/s) layer"),
 }
 
-#: Statistische Verarbeitung (Code-Tabelle 4.10) → wgrib2-Kürzel
+#: Statistical processing (code table 4.10) → wgrib2 abbreviation
 _STATS = {0: "ave", 1: "acc", 2: "max", 3: "min"}
 
-#: Einheit der Zeit (Code-Tabelle 4.4) in Stunden
+#: Unit of time (code table 4.4) in hours
 _UNIT_HOURS = {0: 1 / 60, 1: 1, 2: 24, 10: 3, 11: 6, 12: 12, 13: 1 / 3600}
 
 
 class HeaderError(ValueError):
-    pass
+    """The bytes are not a valid or supported GRIB2 message header."""
 
 
 @dataclass(frozen=True, slots=True)
 class Head:
-    """Kopf einer GRIB2-Nachricht: Gesamtlänge und, wenn bestimmbar, die ``.idx``-Felder."""
+    """Header of a GRIB2 message: total length and, where known, the ``.idx`` fields."""
 
     length: int
     var: str
     level: str
     fcst: str
-    #: Bezugszeit ``JJJJMMTTHH`` aus Sektion 1, nur mit ``complete``
+    #: Reference time ``YYYYMMDDHH`` from section 1, only with ``complete``
     date: str = ""
 
 
 def _signed(b: int) -> int:
-    """Vorzeichen-Betrag-Kodierung von GRIB2 (oberstes Bit = Vorzeichen) für ein Byte."""
+    """GRIB2 sign-magnitude encoding (top bit = sign) for one byte."""
     return -(b & 0x7F) if b & 0x80 else b
 
 
@@ -170,7 +171,7 @@ def _scaled(factor: int, value: int) -> float | None:
 
 
 def _scaled_signed(factor: int, value: int) -> float | None:
-    """Wie :func:`_scaled`, der Wert aber in Vorzeichen-Betrag-Kodierung (z. B. PV=-2e-06)."""
+    """Like :func:`_scaled`, but the value is sign-magnitude encoded (e.g. PV=-2e-06)."""
     if value == 0xFFFFFFFF:
         return None
     magnitude = value & 0x7FFFFFFF
@@ -186,7 +187,7 @@ def _level_complete(sec4: bytes) -> str:
     if t1 in _VALUED and a is not None:
         single, layer = _VALUED[t1]
         b = _scaled_signed(f2, v2) if t2 == t1 else None
-        if t1 in (100, 108):  # Druck in Pa, wgrib2 schreibt mb
+        if t1 in (100, 108):  # pressure in Pa, wgrib2 writes mb
             a, b = a / 100, None if b is None else b / 100
         if b is not None:
             return layer.format(a=f"{a:g}", b=f"{b:g}")
@@ -218,7 +219,7 @@ def _level(sec4: bytes) -> str:
 
 def _hours(unit: int, value: int) -> float:
     if unit not in _UNIT_HOURS:
-        raise HeaderError(f"Zeiteinheit {unit} unbekannt")
+        raise HeaderError(f"Unknown time unit {unit}")
     return value * _UNIT_HOURS[unit]
 
 
@@ -227,18 +228,18 @@ def _fcst(sec4: bytes, template: int) -> str:
     if template in (0, 1):
         return "anl" if start == 0 else f"{start:g} hour fcst"
     if template in (8, 11):
-        # Ensemble (4.11) hat vor der Zeitangabe drei Bytes mehr als 4.8
+        # Ensemble (4.11) has three more bytes than 4.8 before the time fields
         base = 34 if template == 8 else 37
         if len(sec4) < base + 19:
-            raise HeaderError(f"Sektion 4 zu kurz für Vorlage 4.{template}: {len(sec4)} Bytes")
+            raise HeaderError(f"Section 4 too short for template 4.{template}: {len(sec4)} bytes")
         n = sec4[base + 7]
         if n < 1:
-            raise HeaderError("Statistik ohne Zeitbereich")
+            raise HeaderError("Statistical processing without a time range")
         r = base + 12
         kind = _STATS.get(sec4[r], f"stat{sec4[r]}")
         end = start + _hours(sec4[r + 2], struct.unpack(">I", sec4[r + 3 : r + 7])[0])
         if end and start % 24 == 0 and end % 24 == 0:
-            # wgrib2 schreibt ganze Tage als Tage (``0-1 day acc fcst``)
+            # wgrib2 writes whole days as days (``0-1 day acc fcst``)
             return f"{start / 24:g}-{end / 24:g} day {kind} fcst"
         return f"{start:g}-{end:g} hour {kind} fcst"
     return f"template4.{template}"
@@ -246,7 +247,7 @@ def _fcst(sec4: bytes, template: int) -> str:
 
 @cache
 def ncep_parameters() -> dict[tuple[int, int, int], str]:
-    """NCEP-Tabelle 4.2 (Disziplin, Kategorie, Parameter) → wgrib2-Kürzel.
+    """NCEP table 4.2 (discipline, category, parameter) → wgrib2 abbreviation.
 
     @relation(SWR-GRIB-004, scope=function)
     """
@@ -265,17 +266,17 @@ def _date(sec1: bytes) -> str:
 
 
 def parse_head(data: bytes, *, complete: bool = False) -> Head:
-    """Liest Sektion 0 bis 4 vom Anfang einer GRIB2-Nachricht (mindestens bis Sektion 4).
+    """Read sections 0 to 4 from the start of a GRIB2 message (at least up to section 4).
 
-    ``complete``: Namen wie ``wgrib2 -s`` für alle Nachrichten und Bezugsdatum (``.idx``
-    schreiben); sonst die festen Schlüssel der Kopf-Vorlagen.
+    ``complete``: names like ``wgrib2 -s`` for all messages plus the reference date (for
+    writing ``.idx`` files); otherwise the fixed keys from :data:`PARAMETERS`.
 
     @relation(SWR-GRIB-004, SWR-GRIB-008, scope=function)
     """
     if len(data) < 16 or data[:4] != b"GRIB":
-        raise HeaderError("keine GRIB-Kennung")
+        raise HeaderError("no GRIB indicator")
     if data[7] != 2:
-        raise HeaderError(f"nur GRIB2 unterstützt, Edition {data[7]}")
+        raise HeaderError(f"only GRIB2 is supported, edition {data[7]}")
     discipline = data[6]
     (length,) = struct.unpack(">Q", data[8:16])
     pos = 16
@@ -284,7 +285,7 @@ def parse_head(data: bytes, *, complete: bool = False) -> Head:
         (sec_len,) = struct.unpack(">I", data[pos : pos + 4])
         number = data[pos + 4]
         if sec_len < 5:
-            raise HeaderError(f"Sektion {number} mit Länge {sec_len}")
+            raise HeaderError(f"Section {number} with length {sec_len}")
         if number == 1:
             sec1 = data[pos : pos + sec_len]
         if number == 4:
@@ -298,26 +299,27 @@ def parse_head(data: bytes, *, complete: bool = False) -> Head:
                 name = PARAMETERS.get(code) or f"var{discipline}_{sec4[9]}_{sec4[10]}"
                 return Head(length, name, _level(sec4), fcst)
             if len(sec1) < 17:
-                raise HeaderError("Sektion 1 fehlt oder ist zu kurz")
-            # Unbekannte Parameter schreibt wgrib2 so aus
+                raise HeaderError("Section 1 missing or too short")
+            # This is how wgrib2 writes unknown parameters
             name = ncep_parameters().get(code) or (
                 f"var discipline={discipline} master_table={sec1[9]}"
                 f" parmcat={sec4[9]} parm={sec4[10]}"
             )
             return Head(length, name, _level_complete(sec4), fcst, _date(sec1))
         if number > 4:
-            raise HeaderError("Sektion 4 fehlt")
+            raise HeaderError("Section 4 missing")
         pos += sec_len
-    raise HeaderError(f"Sektion 4 liegt nicht in den ersten {len(data)} Bytes")
+    raise HeaderError(f"Section 4 is not within the first {len(data)} bytes")
 
 
 def find_boundary(chunk: bytes, size_left: int) -> int | None:
-    """Erster Nachrichtenanfang in ``chunk`` (Position nach einem ``7777``), sonst ``None``.
+    """First message start in ``chunk`` (position after a ``7777``), otherwise ``None``.
 
-    ``size_left`` ist die Zahl der Bytes ab Anfang von ``chunk`` bis Dateiende. ``GRIB`` kann
-    zufällig in gepackten Daten stehen; verlangt werden deshalb das Ende der vorigen Nachricht
-    davor, Edition 2 und eine Länge, die in die Datei passt. Ob der Treffer echt war, zeigt
-    erst der Lauf über die Köpfe, der genau am nächsten Anfang bzw. Dateiende landen muss.
+    ``size_left`` is the number of bytes from the start of ``chunk`` to the end of the file.
+    ``GRIB`` can appear by chance in packed data, so the match requires the end of the previous
+    message before it, edition 2 and a length that fits into the file. Whether the match was
+    real only shows when walking the headers, which must land exactly on the next start or the
+    end of the file.
 
     @relation(SWR-GRIB-004, SWR-GRIB-008, scope=function)
     """
@@ -333,7 +335,7 @@ def find_boundary(chunk: bytes, size_left: int) -> int | None:
 
 
 def entry(number: int, offset: int, head: Head, date: str = "") -> IdxEntry:
-    """Zeile wie aus einer ``.idx`` für die Nachricht an ``offset``.
+    """``.idx`` entry for the message at ``offset``.
 
     @relation(SWR-GRIB-004, scope=function)
     """
@@ -342,7 +344,7 @@ def entry(number: int, offset: int, head: Head, date: str = "") -> IdxEntry:
 
 
 def idx_line(e: IdxEntry) -> str:
-    """Zeile im Format von ``wgrib2 -s``, z. B. ``581:415092545:d=2019070100:TMP:…:``.
+    """Line in the format of ``wgrib2 -s``, e.g. ``581:415092545:d=2019070100:TMP:…:``.
 
     @relation(SWR-GRIB-004, scope=function)
     """
@@ -350,7 +352,7 @@ def idx_line(e: IdxEntry) -> str:
 
 
 def is_known(e: IdxEntry) -> bool:
-    """``False``, wenn Name oder Fläche nicht aus den Tabellen kam (Platzhalter).
+    """``False`` if the name or level did not come from the tables (placeholder).
 
     @relation(SWR-GRIB-004, scope=function)
     """

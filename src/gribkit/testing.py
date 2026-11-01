@@ -1,4 +1,4 @@
-"""Hilfen für Tests: synthetische GRIB2-Nachrichten mit bekannten Werten.
+"""Test helpers: synthetic GRIB2 messages with known values.
 
 @relation(SWA-GRIB-TESTING, scope=file)
 """
@@ -25,9 +25,9 @@ def make_global_message(
     j_scans_positively: bool = False,
     short_name: str = "2t",
 ) -> tuple[bytes, np.ndarray, np.ndarray]:
-    """Erzeugt eine globale regular_ll-GRIB2-Nachricht mit bekannten Werten.
+    """Create a global regular_ll GRIB2 message with known values.
 
-    Gibt (Nachricht, Breiten, Längen) zurück; Werte = values_fn(lat, lon).
+    Returns (message, latitudes, longitudes); values = values_fn(lat, lon).
     """
     import eccodes as ec
 

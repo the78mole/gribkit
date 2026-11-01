@@ -74,7 +74,7 @@ python_version = "3.12"
 strict = true
 mypy_path = ["src"]
 explicit_package_bases = true
-files = ["src", "tests"]
+files = ["src", "tests", "fuzz"]
 
 [[tool.mypy.overrides]]
 module = ["eccodes.*", "gribapi.*", "atheris"]
