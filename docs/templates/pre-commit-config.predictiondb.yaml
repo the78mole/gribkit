@@ -1,10 +1,10 @@
-# pre-commit: dieselben Prüfungen wie der CI-Job "Lint und Typen".
-# Alle Hooks laufen lokal über uv mit den Versionen aus uv.lock (kein eigenes
-# rev je Hook), damit lokal und in der CI dieselben Ruff- und mypy-Versionen
-# prüfen. Voraussetzung: uv sync --all-packages (mypy braucht alle Pakete).
+# pre-commit: the same checks as the CI job "Lint and types".
+# All hooks run locally through uv with the versions from uv.lock (no separate
+# rev per hook), so the same Ruff and mypy versions check locally and in CI.
+# Requirement: uv sync --all-packages (mypy needs all packages).
 #
-#   uv run pre-commit install           # Hook in .git/hooks einrichten
-#   uv run pre-commit run --all-files   # alles prüfen, wie die CI
+#   uv run pre-commit install           # set up the hook in .git/hooks
+#   uv run pre-commit run --all-files   # check everything, like CI
 repos:
   - repo: local
     hooks:
@@ -22,32 +22,32 @@ repos:
         require_serial: true
       - id: mypy
         name: mypy
-        # Prüft immer das ganze Projekt (files in pyproject.toml), weil
-        # Typfehler auch in nicht geänderten Dateien entstehen können.
+        # Always checks the whole project (files in pyproject.toml), because
+        # type errors can also arise in unchanged files.
         entry: uv run --no-sync mypy
         language: system
         types_or: [python, pyi]
         pass_filenames: false
         require_serial: true
       - id: mypy-analysen
-        name: mypy (Analyse-Skripte, je Ordner einzeln)
-        # Alle Skripte heißen auswertung.py und werden deshalb einzeln geprüft.
+        name: mypy (analysis scripts, each folder separately)
+        # All scripts are named auswertung.py and are therefore checked one by one.
         entry: bash -c 'for f in docs/analysen/*/auswertung.py; do uv run --no-sync mypy "$f" || exit 1; done'
         language: system
         files: ^docs/analysen/.*\.py$
         pass_filenames: false
         require_serial: true
       - id: strictdoc
-        name: strictdoc (Anforderungen und @relation-Marker)
-        # Exportiert reqs/ nach build/reqs/html. Bricht bei unbekannten IDs in Relationen
-        # oder @relation-Markern ab.
+        name: strictdoc (requirements and @relation markers)
+        # Exports reqs/ to build/reqs/html. Fails on unknown IDs in relations
+        # or @relation markers.
         entry: uv run --no-sync strictdoc export reqs --output-dir build/reqs
         language: system
         files: ^(reqs/.*|.*\.py)$
         pass_filenames: false
         require_serial: true
-      - id: reqs-abdeckung
-        name: Abdeckung der Softwareanforderungen
+      - id: reqs-coverage
+        name: Coverage of the software requirements
         entry: uv run --no-sync python reqs/pruefen.py
         language: system
         files: ^(reqs/.*|.*\.py)$

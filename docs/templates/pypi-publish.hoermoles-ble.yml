@@ -69,7 +69,7 @@ jobs:
         echo "Version: ${{ steps.semver.outputs.version }}"
         echo "Version Tag: ${{ steps.semver.outputs.version_tag }}"
         cat >> $GITHUB_STEP_SUMMARY <<EOF
-        ## 📦 Neue Version berechnet
+        ## 📦 New version calculated
 
         **Version:** \`${{ steps.semver.outputs.version }}\`
         **Git-Tag:** \`${{ steps.semver.outputs.version_tag }}\`
@@ -104,7 +104,7 @@ jobs:
           --latest
 
         cat >> $GITHUB_STEP_SUMMARY <<EOF
-        ## 🏷️ GitHub Release erstellt
+        ## 🏷️ GitHub Release created
 
         **Release:** [${{ needs.version.outputs.version_tag }}](https://github.com/${{ github.repository }}/releases/tag/${{ needs.version.outputs.version_tag }})
         EOF
@@ -201,7 +201,7 @@ jobs:
     - name: Add PyPI Summary
       run: |
         cat >> $GITHUB_STEP_SUMMARY <<EOF
-        ## 🚀 <PACKAGE_NAME> PyPI Veröffentlichung
+        ## 🚀 <PACKAGE_NAME> PyPI publication
 
         **Package:** [<PACKAGE_NAME>](https://pypi.org/project/<PACKAGE_NAME>/)
         **Version:** \`${{ needs.version.outputs.version }}\`
@@ -219,7 +219,7 @@ jobs:
     - name: Create Summary
       run: |
         cat >> $GITHUB_STEP_SUMMARY <<EOF
-        ## 🎉 Release Workflow Abgeschlossen
+        ## 🎉 Release workflow finished
 
         **Version:** \`${{ needs.version.outputs.version }}\`
         **Git Tag:** \`${{ needs.version.outputs.version_tag }}\`

@@ -1,46 +1,45 @@
 # CLAUDE.md – gribkit
 
-Dies ist das eigenständige Repository **gribkit** (GitHub `the78mole/gribkit`, derzeit privat,
-PyPI `gribkit`). Es enthält noch keinen Code, sondern die Übergabe aus dem Projekt
-PredictionDB. Der vollständige Auftrag steht in [`docs/UEBERGABE.md`](docs/UEBERGABE.md),
-der Ablauf in [`docs/AUFTRAG.md`](docs/AUFTRAG.md), Daniels Repo-Konventionen in
-[`docs/vorlagen/KONVENTIONEN.md`](docs/vorlagen/KONVENTIONEN.md).
-Lies die Übergabe zuerst ganz, bevor Du etwas änderst.
+This is the standalone **gribkit** repository (GitHub `the78mole/gribkit`, public, PyPI `gribkit`).
+It contains no code yet, only the handover from the PredictionDB project. The full assignment is
+in [`docs/HANDOVER.md`](docs/HANDOVER.md), the sequence of steps in [`docs/BRIEF.md`](docs/BRIEF.md)
+and Daniel's repo conventions in [`docs/templates/CONVENTIONS.md`](docs/templates/CONVENTIONS.md).
+Read the handover in full before changing anything.
 
-## Kurzfassung
+## Summary
 
-gribkit ist eine kleine Python-Bibliothek für GRIB2-Partial-Downloads (NCEP-`.idx` lesen,
-Nachrichten wählen, Byte-Bereiche bündeln, Nachrichtenköpfe ohne ecCodes lesen, GRIB2 per ecCodes
-auf einen Ausschnitt zuschneiden). Sie ist in `the78mole/PredictionDB` unter `packages/gribkit`
-entstanden und soll mit ihrer Git-Historie in dieses Repo umziehen, unter eine freie Lizenz
-gestellt (entschieden: **MIT**) und auf PyPI veröffentlicht werden. Danach bezieht PredictionDB gribkit von PyPI.
+gribkit is a small Python library for GRIB2 partial downloads (read NCEP `.idx` files, select
+messages, merge byte ranges, parse message headers without ecCodes, crop GRIB2 to a region with
+ecCodes). It was created in `the78mole/PredictionDB` under `packages/gribkit` and moves to this
+repository with its Git history, under the **MIT** license, and gets published on PyPI. After that,
+PredictionDB consumes gribkit from PyPI.
 
-## Regeln für die Arbeit
+## Working rules
 
-- **Sprache:** Mit dem Nutzer (Daniel, GitHub `the78mole`) auf Deutsch sprechen. Alles, was
-  öffentlich im Repo und auf PyPI steht (README, Docstrings, Kommentare, Commit-Messages,
-  Changelog), auf **Englisch**, sofern der Nutzer nichts anderes entscheidet (siehe offene
-  Entscheidungen in der Übergabe).
-- **Werkzeuge:** Python mit `uv` (kein pip/poetry), Build-Backend `hatchling`, Ruff
-  (Zeilenlänge 100, Regeln `E,F,W,I,UP,B,SIM,RUF,DTZ`), mypy `strict`, pytest, pre-commit mit
-  lokalen Hooks über `uv run --no-sync` (wie in PredictionDB).
-- **Python:** `>=3.12`, getestet 3.12–3.14. **Kein 3.15**, solange `eccodeslib` keine passenden
-  Wheels hat (Upstream-Issue https://github.com/ecmwf/eccodes/issues/629).
-- **Commits:** Conventional Commits (für semantic-release), mit `Signed-off-by` (`git commit -s`).
-- **Keine Rückwirkung auf PredictionDB ohne Absprache:** Die Umstellung von PredictionDB auf das
-  PyPI-Paket ist ein eigener PR in `the78mole/PredictionDB`, erst nach dem ersten PyPI-Release.
-- **Nicht mitnehmen:** Keine Firmen- oder Kundennamen aus dem Umfeld des Nutzers verwenden; im Zweifel
-  fragen. Keinen Code aus anderen Paketen von PredictionDB (core, Dienste, ml_train, predict)
-  übernehmen.
-- **Freigaben:** Das Repo öffentlich schalten, PyPI-Trusted-Publisher einrichten und das erste
-  Release veröffentlichen sind nach außen wirksam und schwer umkehrbar. Vorher den Nutzer fragen,
-  sofern er es nicht ausdrücklich beauftragt hat.
+- **Language:** Talk to the user (Daniel, GitHub `the78mole`) in German. Everything in the
+  repository and on PyPI is in **English**: README, docs, docstrings, comments, identifiers, file
+  names, commit messages, changelog.
+- **Tools:** Python with `uv` (no pip/poetry), build backend `hatchling`, Ruff (line length 100,
+  rules `E,F,W,I,UP,B,SIM,RUF,DTZ`), mypy `strict`, pytest, pre-commit with local hooks via
+  `uv run --no-sync` (as in PredictionDB).
+- **Python:** `>=3.12`, tested on 3.12–3.14. **No 3.15** until `eccodeslib` ships matching wheels
+  (upstream issue https://github.com/ecmwf/eccodes/issues/629).
+- **Commits:** Conventional Commits, with `Signed-off-by` (`git commit -s`).
+- **Releases:** Every commit on `main` produces a release, including a PyPI publish, once the
+  release workflow is in place (see `docs/HANDOVER.md`, section 5). Treat a merge to `main` as a
+  publication.
+- **No changes to PredictionDB without agreement:** Switching PredictionDB to the PyPI package is a
+  separate PR in `the78mole/PredictionDB`, and only after the first PyPI release.
+- **Do not bring along:** No company or customer names from the user's environment; ask when in
+  doubt. No code from other PredictionDB packages (core, services, ml_train, predict).
+- **Approvals:** Setting up the PyPI Trusted Publisher and publishing the first release are
+  externally visible and hard to undo. Ask the user first unless they explicitly requested it.
 
-## Schnelleinstieg (nach der Übernahme)
+## Quick start (after the import)
 
 ```bash
 uv sync
 uv run pytest
 uv run pre-commit run --all-files
-uv run --group fuzz python fuzz/gribkit_fuzz.py idx -max_total_time=60 fuzz/korpus/idx   # nur Linux x86_64
+uv run --group fuzz python fuzz/gribkit_fuzz.py idx -max_total_time=60 fuzz/corpus/idx   # Linux x86_64 only
 ```

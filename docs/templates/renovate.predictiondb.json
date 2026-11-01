@@ -2,9 +2,9 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "description": [
-    "Grüne Minor-/Patch-Gruppen und die Lockfile-Wartung mergt Renovate selbst.",
-    "platformAutomerge ist aus, damit Renovate vor dem Merge alle Checks selbst prüft, auch ohne Pflicht-Checks im Branchschutz.",
-    "Major-Updates und die Python-Laufzeit brauchen eine Entscheidung und werden nie automatisch gemergt."
+    "Renovate merges green minor/patch groups and lockfile maintenance itself.",
+    "platformAutomerge is off so that Renovate checks all checks itself before merging, even without required checks in branch protection.",
+    "Major updates and the Python runtime need a decision and are never merged automatically."
   ],
   "platformAutomerge": false,
   "dependencyDashboard": true,
@@ -18,23 +18,23 @@
   },
   "packageRules": [
     {
-      "description": "Python-Pakete (uv-Workspace): Minor und Patch in einem PR",
+      "description": "Python packages (uv workspace): minor and patch in one PR",
       "matchManagers": ["pep621"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "Python-Abhängigkeiten (minor/patch)",
+      "groupName": "Python dependencies (minor/patch)",
       "groupSlug": "python-minor-patch",
       "automerge": true
     },
     {
-      "description": "Container-Images (Dockerfiles, Compose): Minor und Patch in einem PR",
+      "description": "Container images (Dockerfiles, Compose): minor and patch in one PR",
       "matchManagers": ["dockerfile", "docker-compose"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "Container-Images (minor/patch)",
+      "groupName": "Container images (minor/patch)",
       "groupSlug": "docker-minor-patch",
       "automerge": true
     },
     {
-      "description": "GitHub Actions: Minor und Patch in einem PR",
+      "description": "GitHub Actions: minor and patch in one PR",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "GitHub Actions (minor/patch)",
@@ -43,18 +43,18 @@
     },
     {
       "description": [
-        "Python-Laufzeit (Basis-Image, .python-version) eigenständig, weil ein Sprung 3.14 -> 3.15 für Docker als Minor zählt.",
-        "MERKER: auf 3.14.x festgehalten, weil eccodeslib/eckitlib noch keine Wheels für 3.15 liefern (https://github.com/ecmwf/eccodes/issues/629).",
-        "allowedVersions entfernen, sobald alle Abhängigkeiten 3.15 können (Issue #84)."
+        "Python runtime (base image, .python-version) on its own, because a jump from 3.14 to 3.15 counts as minor for Docker.",
+        "NOTE: held at 3.14.x because eccodeslib/eckitlib do not ship wheels for 3.15 yet (https://github.com/ecmwf/eccodes/issues/629).",
+        "Remove allowedVersions once all dependencies support 3.15 (issue #84)."
       ],
       "matchDepNames": ["python"],
       "allowedVersions": "/^3\\.14(\\.\\d+)?(-|$)/",
-      "groupName": "Python-Laufzeit",
+      "groupName": "Python runtime",
       "groupSlug": "python-runtime",
       "automerge": false
     },
     {
-      "description": "Major-Updates bleiben einzelne PRs und werden markiert",
+      "description": "Major updates stay separate PRs and get a label",
       "matchUpdateTypes": ["major"],
       "addLabels": ["major"],
       "automerge": false

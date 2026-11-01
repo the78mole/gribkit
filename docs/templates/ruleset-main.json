@@ -1,5 +1,5 @@
 {
-  "name": "main schützen",
+  "name": "protect main",
   "target": "branch",
   "enforcement": "active",
   "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
@@ -18,8 +18,8 @@
       "strict_required_status_checks_policy": false,
       "do_not_enforce_on_create": false,
       "required_status_checks": [
-        {"context": "Lint und Typen", "integration_id": 15368},
-        {"context": "Unit-Tests", "integration_id": 15368},
-        {"context": "Image und Compose-Stack", "integration_id": 15368}]}}
+        {"context": "Lint and types", "integration_id": 15368},
+        {"context": "Unit tests", "integration_id": 15368},
+        {"context": "Image and Compose stack", "integration_id": 15368}]}}
   ]
 }
