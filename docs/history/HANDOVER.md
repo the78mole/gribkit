@@ -1,5 +1,8 @@
 # Handover: moving gribkit out of PredictionDB
 
+> **Historical document.** The handover is complete. `docs/templates/` and `scripts/` referenced
+> below were removed afterwards; they are still in the Git history.
+
 As of 2026-11-01, source `the78mole/PredictionDB` on `main`, including the merged PR #228.
 
 ## 1. Goal

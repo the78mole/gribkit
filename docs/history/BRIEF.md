@@ -1,5 +1,8 @@
 # Kickoff brief for the Claude session
 
+> **Historical document.** The handover is complete. `docs/templates/` and `scripts/` referenced
+> below were removed afterwards; they are still in the Git history.
+
 The repository is on GitHub (`the78mole/gribkit`, public). Start a session on
 https://claude.ai/code and select **both** repositories: `the78mole/gribkit` and
 `the78mole/PredictionDB`. Then paste this text:
