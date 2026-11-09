@@ -36,13 +36,8 @@ pip install gribkit
 uv add gribkit
 ```
 
-gribkit supports **Python 3.12 to 3.14**. It depends on `eccodes`, `eccodeslib` and `numpy`.
-
-> **Why not Python 3.15?** The ecCodes Python bindings need the binary `eccodeslib` wheel (otherwise
-> they fail with *"Cannot find the ecCodes library"*). `eccodeslib` and `eckitlib` are currently
-> only published for CPython 3.11 to 3.14
-> ([ecmwf/eccodes#629](https://github.com/ecmwf/eccodes/issues/629)). gribkit will add 3.15 once
-> those wheels exist.
+gribkit supports **Python 3.12 to 3.15**. It depends on `eccodes`, `eccodeslib` and `numpy`.
+On Python 3.15, `eccodeslib` 2.50.0.34 or newer is needed, the first release with cp315 wheels.
 
 Only `crop`, `crop_message` and `describe` use ecCodes. Reading `.idx` files, merging ranges and
 parsing headers is pure Python.
