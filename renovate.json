@@ -68,8 +68,8 @@
     {
       "description": [
         "Python runtime (.python-version) on its own.",
-        "NOTE: held at 3.14.x because eccodeslib/eckitlib do not ship wheels for 3.15 yet (https://github.com/ecmwf/eccodes/issues/629).",
-        "Remove allowedVersions once all dependencies support 3.15."
+        "NOTE: held at 3.14.x because atheris (fuzz group, which runs on .python-version) does not ship a cp315 wheel yet.",
+        "Remove allowedVersions once atheris supports 3.15."
       ],
       "matchDepNames": [
         "python"

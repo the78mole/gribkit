@@ -15,8 +15,8 @@ is recorded in [`docs/history/HANDOVER.md`](docs/history/HANDOVER.md).
   rules `E,F,W,I,UP,B,SIM,RUF,DTZ`), mypy `strict`, pytest with Hypothesis, pre-commit with local
   hooks via `uv run --no-sync`. Assess every Ruff finding; ignore deliberate patterns with a
   comment giving the reason, never switch rules off wholesale.
-- **Python:** `>=3.12`, tested on 3.12–3.14. **No 3.15** until `eccodeslib` ships matching wheels
-  (https://github.com/ecmwf/eccodes/issues/629). Renovate holds the runtime at 3.14.x.
+- **Python:** `>=3.12`, tested on 3.12–3.15 (3.15 since `eccodeslib` 2.50.0.34). Renovate holds the
+  dev runtime (`.python-version`) at 3.14.x because `atheris` (fuzz group) has no cp315 wheel yet.
 - **CI:** Actions are pinned by SHA (OpenSSF Scorecard), runners by version (`ubuntu-26.04`);
   Renovate keeps both current. Look up current versions before adding an action, never copy them
   from memory.
